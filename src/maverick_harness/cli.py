@@ -94,7 +94,7 @@ def main(
         code = asyncio.run(_run_headless(runner, prompt, trace_path=trace))
         sys.exit(code)
 
-    asyncio.run(run_tui(runner, read_only=read_only))
+    asyncio.run(run_tui(runner, read_only=read_only, trace_path=trace))
 
 
 if __name__ == "__main__":

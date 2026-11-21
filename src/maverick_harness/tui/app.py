@@ -12,20 +12,28 @@ from maverick_harness.harness.events import (
     ToolCallStarted,
 )
 from maverick_harness.harness.runner import HarnessRunner
+from maverick_harness.harness.trace import TraceLogger
 
 
-async def run_tui(runner: HarnessRunner, *, read_only: bool = False) -> None:
+async def run_tui(
+    runner: HarnessRunner,
+    *,
+    read_only: bool = False,
+    trace_path: Path | None = None,
+) -> None:
     """Interactive terminal REPL connected to the headless HarnessRunner."""
     console = Console()
     session: PromptSession[str] = PromptSession()
+    tracer = TraceLogger(trace_path) if trace_path else None
 
     mode_label = "read-only" if read_only else "full (read/write/bash)"
+    trace_line = f"\n[dim]Trace:[/dim] {trace_path}" if trace_path else ""
     console.print(
         Panel.fit(
             f"[bold cyan]Maverick Harness[/bold cyan]\n"
             f"[dim]Model:[/dim] {runner.agent.model_spec}   "
             f"[dim]Mode:[/dim] {mode_label}\n"
-            f"[dim]Workspace:[/dim] {Path.cwd()}\n"
+            f"[dim]Workspace:[/dim] {Path.cwd()}{trace_line}\n"
             f"[dim]Commands:[/dim] /clear to reset history, /exit to quit",
             border_style="cyan",
         )
@@ -50,6 +58,8 @@ async def run_tui(runner: HarnessRunner, *, read_only: bool = False) -> None:
 
         console.print()
         async for event in runner.run_turn(user_input):
+            if tracer:
+                tracer.log_event(event)
             if isinstance(event, ToolCallStarted):
                 console.print(
                     f"  [bold yellow]⚡ {event.tool_name}[/bold yellow] "

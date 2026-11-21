@@ -90,7 +90,7 @@ class HarnessRunner:
                 yield RunError(
                     message=f"Reached max step limit ({self.agent.max_steps})."
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 yield RunError(message=str(e))
 
     def reset(self) -> None:

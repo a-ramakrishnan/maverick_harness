@@ -26,20 +26,37 @@ def _build_env_snapshot(cwd: Path) -> str:
     )
 
 
-def build_system_prompt(workspace: Path | None = None) -> str:
+def build_system_prompt(
+    workspace: Path | None = None,
+    *,
+    read_only: bool = False,
+) -> str:
     """Build the core system instructions for the coding agent."""
     cwd = (workspace or Path.cwd()).resolve()
     env_snapshot = _build_env_snapshot(cwd)
+
+    if read_only:
+        workflow = """\
+Mode: READ-ONLY (file writes and shell commands are disabled).
+
+Core workflow:
+1. Inspect thoroughly: use `glob_files`, `grep_search`, and `read_file` to understand the codebase before answering or proposing changes.
+2. Don't repeat failing calls: if a tool call fails or returns unexpected output, change your approach instead of retrying identical arguments.
+3. Be concise and factual: cite exact file paths and line numbers. Never claim to have edited files or run commands."""
+    else:
+        workflow = """\
+Core workflow:
+1. Inspect before acting: use `glob_files`, `grep_search`, and `read_file` to understand the codebase before proposing or making changes.
+2. Make surgical edits: prefer `edit_file` over rewriting whole files with `write_file`.
+3. Verify your work: after editing code, run relevant checks (tests, linter, or a quick command via `run_bash`) before claiming success.
+4. Don't repeat failing calls: if a tool call fails or returns unexpected output, change your approach instead of retrying identical arguments.
+5. Be concise and factual: cite exact file paths and report real command outputs. Never invent files or test results."""
+
     return f"""\
 You are Maverick, a disciplined terminal coding agent operating in: {cwd}
 
 Environment snapshot:
 {env_snapshot}
 
-Core workflow:
-1. Inspect before acting: use `glob_files`, `grep_search`, and `read_file` to understand the codebase before proposing or making changes.
-2. Make surgical edits: prefer `edit_file` over rewriting whole files with `write_file`.
-3. Verify your work: after editing code, run relevant checks (tests, linter, or a quick command via `run_bash`) before claiming success.
-4. Don't repeat failing calls: if a tool call fails or returns unexpected output, change your approach instead of retrying identical arguments.
-5. Be concise and factual: cite exact file paths and report real command outputs. Never invent files or test results.
+{workflow}
 """

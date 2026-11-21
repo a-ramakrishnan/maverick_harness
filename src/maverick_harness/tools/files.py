@@ -14,9 +14,7 @@ def _is_secret_path(path: Path) -> bool:
         return True
     if name.startswith(".env.") and name not in {".env.example", ".env.sample", ".env.template"}:
         return True
-    if name in SECRET_NAMES or path.suffix.lower() in SECRET_SUFFIXES:
-        return True
-    return False
+    return name in SECRET_NAMES or path.suffix.lower() in SECRET_SUFFIXES
 
 
 def _resolve_path(path: str) -> Path | str:
@@ -48,7 +46,7 @@ def read_file(path: str, start_line: int = 1, end_line: int = 200) -> str:
 
     try:
         lines = target.read_text(encoding="utf-8").splitlines()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return f"Error reading {path}: {e}"
 
     total = len(lines)
@@ -73,7 +71,7 @@ def write_file(path: str, content: str) -> str:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} chars to {path}"
-    except Exception as e:
+    except OSError as e:
         return f"Error writing {path}: {e}"
 
 

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from maverick_harness.harness.events import HarnessEvent
@@ -15,7 +15,7 @@ class TraceLogger:
     def log_event(self, event: HarnessEvent) -> None:
         """Append one timestamped event record as a JSON line."""
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "event_type": type(event).__name__,
             **event.model_dump(),
         }

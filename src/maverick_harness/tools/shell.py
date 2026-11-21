@@ -29,33 +29,42 @@ def _resolve_workdir(workdir: str) -> Path | str:
     return target
 
 
-def run_bash(command:str, workdir: str = ".",timeout_seconds:int = 30) -> str:
+def run_bash(command: str, workdir: str = ".", timeout_seconds: int = 30) -> str:
+    """Execute a shell command inside the workspace and return its exit code and output.
 
+    Args:
+        command: Shell command to run (e.g. 'pytest', 'git status', 'ruff check .').
+        workdir: Working directory relative to workspace root (default: '.').
+        timeout_seconds: Timeout in seconds, clamped between 1 and 120 (default: 30).
+    """
     cwd = _resolve_workdir(workdir)
     if isinstance(cwd, str):
         return cwd
-    
+
     clamped_timeout = max(MIN_TIMEOUT_SECONDS, min(timeout_seconds, MAX_TIMEOUT_SECONDS))
 
     try:
-        result = subprocess.run(command, shell = True, cwd = cwd, capture_output=True, text=True, timeout=clamped_timeout)
+        result = subprocess.run(
+            command,
+            shell=True,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=clamped_timeout,
+            check=False,
+        )
 
     except subprocess.TimeoutExpired:
         return f"Error: command timed out after {clamped_timeout}s: {command}"
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return f"Error: executing command: {e}"
-    
+
     parts = [f"exit_code: {result.returncode}"]
 
     if result.stdout:
         parts.append(f"--- stdout ---\n{result.stdout.strip()}")
     if result.stderr:
         parts.append(f"--- stderr ---\n{result.stderr.strip()}")
-    #output = "\n".join(parts)
-    #if len(output) > MAX_OUTPUT_CHARS:
-    #    return output[:MAX_OUTPUT_CHARS] + "\n... (output truncated)"
-
-    #return output
     return _truncate_head_tail("\n".join(parts))
 

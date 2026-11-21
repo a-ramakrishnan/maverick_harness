@@ -22,7 +22,7 @@ class CodingAgent:
 
         self._agent = Agent(
             model=create_model(model_spec),
-            instructions=build_system_prompt(),
+            instructions=build_system_prompt(read_only=read_only),
         )
         for tool_fn in get_tools(read_only=read_only):
             self._agent.tool_plain(tool_fn)
