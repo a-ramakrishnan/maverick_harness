@@ -59,10 +59,15 @@ async def run_tui(runner: HarnessRunner, *, read_only: bool = False) -> None:
                 first_line = event.output_preview.splitlines()[0] if event.output_preview else ""
                 console.print(f"  [green]✓ {event.tool_name}[/green] [dim]{first_line[:100]}[/dim]")
             elif isinstance(event, AssistantReply):
+                subtitle = (
+                    f"[dim]steps: {event.requests} • "
+                    f"tokens: {event.input_tokens:,} in / {event.output_tokens:,} out[/dim]"
+                )
                 console.print(
                     Panel(
                         Markdown(event.text),
                         title="[bold cyan]maverick[/bold cyan]",
+                        subtitle=subtitle,
                         border_style="blue",
                     )
                 )

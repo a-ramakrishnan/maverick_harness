@@ -18,16 +18,22 @@ from maverick_harness.harness.events import (
     ToolCallStarted,
 )
 
+MAX_IDENTICAL_TOOL_CALLS = 3
+
 
 class HarnessRunner:
+    """Headless orchestrator that streams typed HarnessEvents for each turn."""
+
     def __init__(self, agent: CodingAgent) -> None:
         self.agent = agent
         self._lock = asyncio.Lock()
 
     async def run_turn(self, user_prompt: str) -> AsyncIterator[HarnessEvent]:
-    
+        """Run one user turn and yield live tool & reply events."""
         async with self._lock:
             limits = UsageLimits(request_limit=self.agent.max_steps)
+            recent_calls: list[tuple[str, str]] = []
+
             try:
                 async with self.agent._agent.iter(
                     user_prompt,
@@ -39,9 +45,24 @@ class HarnessRunner:
                             async with node.stream(run.ctx) as stream:
                                 async for event in stream:
                                     if isinstance(event, FunctionToolCallEvent):
+                                        sig = (event.part.tool_name, str(event.part.args))
+                                        recent_calls.append(sig)
+                                        if (
+                                            len(recent_calls) >= MAX_IDENTICAL_TOOL_CALLS
+                                            and len(set(recent_calls[-MAX_IDENTICAL_TOOL_CALLS:])) == 1
+                                        ):
+                                            yield RunError(
+                                                message=(
+                                                    f"Doom-loop detected: '{sig[0]}' was called "
+                                                    f"{MAX_IDENTICAL_TOOL_CALLS} times in a row with "
+                                                    "identical arguments."
+                                                )
+                                            )
+                                            return
+
                                         yield ToolCallStarted(
-                                            tool_name=event.part.tool_name,
-                                            args=str(event.part.args),
+                                            tool_name=sig[0],
+                                            args=sig[1],
                                         )
                                     elif isinstance(event, FunctionToolResultEvent):
                                         content = str(event.part.content)
@@ -57,7 +78,13 @@ class HarnessRunner:
 
                 if run.result is not None:
                     self.agent.message_history = run.result.all_messages()
-                    yield AssistantReply(text=str(run.result.output))
+                    usage = run.result.usage
+                    yield AssistantReply(
+                        text=str(run.result.output),
+                        input_tokens=getattr(usage, "input_tokens", 0) or 0,
+                        output_tokens=getattr(usage, "output_tokens", 0) or 0,
+                        requests=getattr(usage, "requests", 0) or 0,
+                    )
 
             except UsageLimitExceeded:
                 yield RunError(
